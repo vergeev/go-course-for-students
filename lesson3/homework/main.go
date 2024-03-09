@@ -15,6 +15,31 @@ type Options struct {
 	Limit  int64
 }
 
+// OffsetReader returns a Reader that reads from r
+// but skips the first n bytes.
+// The underlying implementation is an *OffsettedReader.
+func OffsetReader(r io.Reader, n int64) io.Reader { return &OffsettedReader{r, n} }
+
+// An OffsettedReader reads from R but discards
+// the first N bytes. Each call to Read
+// updates N to reflect the new amount to discard remaining.
+// Read returns EOF when N <= 0 or when the underlying R returns EOF.
+type OffsettedReader struct {
+	R io.Reader // underlying reader
+	N int64     // bytes to discard
+}
+
+func (o *OffsettedReader) Read(p []byte) (n int, err error) {
+	if o.N > 0 {
+		_, err := io.CopyN(io.Discard, o.R, o.N)
+		if err != nil {
+			return 0, err
+		}
+	}
+	n, err = o.R.Read(p)
+	return
+}
+
 func ParseFlags() (*Options, error) {
 	var opts Options
 
@@ -58,9 +83,12 @@ func main() {
 	if opts.Limit != 0 {
 		src = io.LimitReader(src, opts.Offset+opts.Limit)
 	}
+	if opts.Offset != 0 {
+		src = OffsetReader(src, opts.Offset)
+	}
 
-	io.CopyN(io.Discard, src, opts.Offset)
-	if _, err := io.Copy(dst, src); err != nil {
+	tee := io.TeeReader(src, dst)
+	if _, err := io.ReadAll(tee); err != nil {
 		log.Fatal(err)
 	}
 }
