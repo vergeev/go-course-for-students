@@ -55,18 +55,12 @@ func main() {
 		defer dstFile.Close()
 		dst = dstFile
 	}
-
-	if opts.Offset != 0 {
-		// TODO: implement discarding reader
-		//dst = io(src, opts.Limit)
-	}
-
 	if opts.Limit != 0 {
-		src = io.LimitReader(src, opts.Limit)
+		src = io.LimitReader(src, opts.Offset+opts.Limit)
 	}
 
-	tee := io.TeeReader(src, dst)
-	if _, err := io.ReadAll(tee); err != nil {
+	io.CopyN(io.Discard, src, opts.Offset)
+	if _, err := io.Copy(dst, src); err != nil {
 		log.Fatal(err)
 	}
 }
