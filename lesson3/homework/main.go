@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -8,11 +9,13 @@ import (
 	"os"
 )
 
+var largeOffsetError = errors.New("offset is larger than input")
+
 type Options struct {
 	From   string
 	To     string
-	Offset int64
-	Limit  int64
+	Offset uint
+	Limit  uint
 }
 
 // OffsetReader returns a Reader that reads from r
@@ -31,8 +34,11 @@ type OffsettedReader struct {
 
 func (o *OffsettedReader) Read(p []byte) (n int, err error) {
 	if o.N > 0 {
-		_, err := io.CopyN(io.Discard, o.R, o.N)
+		discarded, err := io.CopyN(io.Discard, o.R, o.N)
 		if err != nil {
+			if err == io.EOF && discarded != 0 {
+				return 0, largeOffsetError
+			}
 			return 0, err
 		}
 	}
@@ -45,8 +51,8 @@ func ParseFlags() (*Options, error) {
 
 	flag.StringVar(&opts.From, "from", "", "file to read. by default - stdin")
 	flag.StringVar(&opts.To, "to", "", "file to write. by default - stdout")
-	flag.Int64Var(&opts.Offset, "offset", 0, "how many bytes to skip. by default - 0")
-	flag.Int64Var(&opts.Limit, "limit", 0, "how many bytes to read. by default - all until EOF")
+	flag.UintVar(&opts.Offset, "offset", 0, "how many bytes to skip. by default - 0")
+	flag.UintVar(&opts.Limit, "limit", 0, "how many bytes to read. by default - all until EOF")
 
 	flag.Parse()
 
@@ -73,7 +79,7 @@ func main() {
 	}
 
 	if opts.To != "" {
-		dstFile, err := os.OpenFile(opts.To, os.O_RDWR|os.O_CREATE, 0644)
+		dstFile, err := os.OpenFile(opts.To, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -81,10 +87,10 @@ func main() {
 		dst = dstFile
 	}
 	if opts.Limit != 0 {
-		src = io.LimitReader(src, opts.Offset+opts.Limit)
+		src = io.LimitReader(src, int64(opts.Offset+opts.Limit))
 	}
 	if opts.Offset != 0 {
-		src = OffsetReader(src, opts.Offset)
+		src = OffsetReader(src, int64(opts.Offset))
 	}
 
 	tee := io.TeeReader(src, dst)
