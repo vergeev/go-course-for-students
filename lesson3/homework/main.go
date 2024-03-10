@@ -20,6 +20,7 @@ type Options struct {
 	To         string
 	Offset     uint
 	Limit      uint
+	blockSize  uint
 	Conv       string
 	trimSpaces bool
 	lowerCase  bool
@@ -97,7 +98,8 @@ func ParseFlags() (*Options, error) {
 	flag.StringVar(&opts.To, "to", "", "file to write. by default - stdout")
 	flag.UintVar(&opts.Offset, "offset", 0, "how many bytes to skip. by default - 0")
 	flag.UintVar(&opts.Limit, "limit", 0, "how many bytes to read. by default - all until EOF")
-	flag.StringVar(&opts.Conv, "conv", "", "how many bytes to read. by default - all until EOF")
+	flag.UintVar(&opts.blockSize, "block-size", 0, "how many bytes to read and write at a time. by default - implementation-dependent")
+	flag.StringVar(&opts.Conv, "conv", "", "conversions to apply. legal values: upper_case, lower_case, trim_spaces")
 
 	flag.Parse()
 
