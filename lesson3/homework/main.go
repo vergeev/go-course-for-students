@@ -8,16 +8,21 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 )
 
 var largeOffsetError = errors.New("offset is larger than input")
+var contradictoryFlags = errors.New("some of the passed flags are contradicting each other")
 
 type Options struct {
-	From   string
-	To     string
-	Offset uint
-	Limit  uint
-	Conv   string
+	From       string
+	To         string
+	Offset     uint
+	Limit      uint
+	Conv       string
+	trimSpaces bool
+	lowerCase  bool
+	upperCase  bool
 }
 
 // OffsetReader returns a Reader that reads from r
@@ -71,6 +76,22 @@ func ParseFlags() (*Options, error) {
 
 	flag.Parse()
 
+	convFlags := strings.Split(opts.Conv, ",")
+	for i := 0; i < len(convFlags); i++ {
+		switch convFlags[i] {
+		case "trim_spaces":
+			opts.trimSpaces = true
+		case "upper_case":
+			opts.upperCase = true
+		case "lower_case":
+			opts.lowerCase = true
+		}
+	}
+
+	if opts.upperCase == true && opts.lowerCase == true {
+		return &opts, contradictoryFlags
+	}
+
 	return &opts, nil
 }
 
@@ -107,7 +128,7 @@ func main() {
 	if opts.Offset != 0 {
 		src = OffsetReader(src, int64(opts.Offset))
 	}
-	if opts.Conv != "" {
+	if opts.trimSpaces {
 		dst = NewTrimSpaceWriter(dst)
 	}
 
