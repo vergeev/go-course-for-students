@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,6 +17,7 @@ type Options struct {
 	To     string
 	Offset uint
 	Limit  uint
+	Conv   string
 }
 
 // OffsetReader returns a Reader that reads from r
@@ -46,6 +48,18 @@ func (o *OffsettedReader) Read(p []byte) (n int, err error) {
 	return
 }
 
+func NewTrimSpaceWriter(w io.Writer) io.Writer { return &TrimSpaceWriter{w} }
+
+type TrimSpaceWriter struct {
+	W io.Writer // underlying writer
+}
+
+func (t *TrimSpaceWriter) Write(p []byte) (n int, err error) {
+	p = bytes.TrimSpace(p)
+	n, err = t.W.Write(p)
+	return
+}
+
 func ParseFlags() (*Options, error) {
 	var opts Options
 
@@ -53,6 +67,7 @@ func ParseFlags() (*Options, error) {
 	flag.StringVar(&opts.To, "to", "", "file to write. by default - stdout")
 	flag.UintVar(&opts.Offset, "offset", 0, "how many bytes to skip. by default - 0")
 	flag.UintVar(&opts.Limit, "limit", 0, "how many bytes to read. by default - all until EOF")
+	flag.StringVar(&opts.Conv, "conv", "", "how many bytes to read. by default - all until EOF")
 
 	flag.Parse()
 
@@ -91,6 +106,9 @@ func main() {
 	}
 	if opts.Offset != 0 {
 		src = OffsetReader(src, int64(opts.Offset))
+	}
+	if opts.Conv != "" {
+		dst = NewTrimSpaceWriter(dst)
 	}
 
 	tee := io.TeeReader(src, dst)
