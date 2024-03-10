@@ -13,6 +13,7 @@ import (
 
 var largeOffsetError = errors.New("offset is larger than input")
 var contradictoryFlags = errors.New("some of the passed flags are contradicting each other")
+var unknownConvValue = errors.New("some of the -conv flag values passed are invalid")
 
 type Options struct {
 	From       string
@@ -65,6 +66,30 @@ func (t *TrimSpaceWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
+func NewLowerCaseWriter(w io.Writer) io.Writer { return &LowerCaseWriter{w} }
+
+type LowerCaseWriter struct {
+	W io.Writer // underlying writer
+}
+
+func (l *LowerCaseWriter) Write(p []byte) (n int, err error) {
+	p = bytes.ToLower(p)
+	n, err = l.W.Write(p)
+	return
+}
+
+func NewUpperCaseWriter(w io.Writer) io.Writer { return &UpperCaseWriter{w} }
+
+type UpperCaseWriter struct {
+	W io.Writer // underlying writer
+}
+
+func (u *UpperCaseWriter) Write(p []byte) (n int, err error) {
+	p = bytes.ToUpper(p)
+	n, err = u.W.Write(p)
+	return
+}
+
 func ParseFlags() (*Options, error) {
 	var opts Options
 
@@ -85,6 +110,8 @@ func ParseFlags() (*Options, error) {
 			opts.upperCase = true
 		case "lower_case":
 			opts.lowerCase = true
+		default:
+			return &opts, unknownConvValue
 		}
 	}
 
@@ -113,7 +140,6 @@ func main() {
 		defer srcFile.Close()
 		src = srcFile
 	}
-
 	if opts.To != "" {
 		dstFile, err := os.OpenFile(opts.To, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
 		if err != nil {
@@ -130,6 +156,12 @@ func main() {
 	}
 	if opts.trimSpaces {
 		dst = NewTrimSpaceWriter(dst)
+	}
+	if opts.lowerCase {
+		dst = NewLowerCaseWriter(dst)
+	}
+	if opts.upperCase {
+		dst = NewUpperCaseWriter(dst)
 	}
 
 	tee := io.TeeReader(src, dst)
