@@ -91,6 +91,25 @@ func (u *UpperCaseWriter) Write(p []byte) (n int, err error) {
 	return
 }
 
+func ReadAllByBlockSize(r io.Reader, blockSize uint) ([]byte, error) {
+	b := make([]byte, 0, blockSize)
+	for {
+		n, err := r.Read(b[len(b):cap(b)])
+		b = b[:len(b)+n]
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return b, err
+		}
+
+		if len(b) == cap(b) {
+			// Add more capacity (let append pick how much).
+			b = append(b, 0)[:len(b)]
+		}
+	}
+}
+
 func ParseFlags() (*Options, error) {
 	var opts Options
 
@@ -98,7 +117,7 @@ func ParseFlags() (*Options, error) {
 	flag.StringVar(&opts.To, "to", "", "file to write. by default - stdout")
 	flag.UintVar(&opts.Offset, "offset", 0, "how many bytes to skip. by default - 0")
 	flag.UintVar(&opts.Limit, "limit", 0, "how many bytes to read. by default - all until EOF")
-	flag.UintVar(&opts.blockSize, "block-size", 0, "how many bytes to read and write at a time. by default - implementation-dependent")
+	flag.UintVar(&opts.blockSize, "block-size", 512, "how many bytes to read and write at a time. by default - 512")
 	flag.StringVar(&opts.Conv, "conv", "", "conversions to apply. legal values: upper_case, lower_case, trim_spaces")
 
 	flag.Parse()
@@ -169,7 +188,7 @@ func main() {
 	}
 
 	tee := io.TeeReader(src, dst)
-	if _, err := io.ReadAll(tee); err != nil {
+	if _, err := ReadAllByBlockSize(tee, opts.blockSize); err != nil {
 		log.Fatal(err)
 	}
 }
