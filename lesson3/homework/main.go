@@ -103,17 +103,19 @@ func ParseFlags() (*Options, error) {
 
 	flag.Parse()
 
-	convFlags := strings.Split(opts.Conv, ",")
-	for i := 0; i < len(convFlags); i++ {
-		switch convFlags[i] {
-		case "trim_spaces":
-			opts.trimSpaces = true
-		case "upper_case":
-			opts.upperCase = true
-		case "lower_case":
-			opts.lowerCase = true
-		default:
-			return &opts, unknownConvValue
+	if opts.Conv != "" {
+		convFlags := strings.Split(opts.Conv, ",")
+		for i := 0; i < len(convFlags); i++ {
+			switch convFlags[i] {
+			case "trim_spaces":
+				opts.trimSpaces = true
+			case "upper_case":
+				opts.upperCase = true
+			case "lower_case":
+				opts.lowerCase = true
+			default:
+				return &opts, unknownConvValue
+			}
 		}
 	}
 
