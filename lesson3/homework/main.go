@@ -138,7 +138,7 @@ func ParseFlags() (*Options, error) {
 		}
 	}
 
-	if opts.upperCase == true && opts.lowerCase == true {
+	if opts.upperCase && opts.lowerCase {
 		return &opts, contradictoryFlags
 	}
 
