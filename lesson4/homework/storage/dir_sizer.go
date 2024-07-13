@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 )
 
 // Result represents the Size function result
@@ -56,8 +57,8 @@ func (a *sizer) Size(ctx context.Context, d Dir) (r Result, e error) {
 				e = err
 				return
 			}
-			r.Size += subResult.Size
-			r.Count += subResult.Count
+			atomic.AddInt64(&r.Size, subResult.Size)
+			atomic.AddInt64(&r.Count, subResult.Count)
 		}()
 	}
 
@@ -68,8 +69,8 @@ func (a *sizer) Size(ctx context.Context, d Dir) (r Result, e error) {
 			e = err
 			return
 		}
-		r.Size += size
-		r.Count += 1
+		atomic.AddInt64(&r.Size, size)
+		atomic.AddInt64(&r.Count, 1)
 	}
 	wg.Wait()
 
