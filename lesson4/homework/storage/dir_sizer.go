@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"sync"
 )
 
 // Result represents the Size function result
@@ -43,6 +44,23 @@ func (a *sizer) Size(ctx context.Context, d Dir) (r Result, e error) {
 		return
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(dirs))
+	for i := 0; i < len(dirs); i++ {
+		dir := dirs[i]
+		go func() {
+			defer wg.Done()
+
+			subResult, err := a.Size(ctx, dir)
+			if err != nil {
+				e = err
+				return
+			}
+			r.Size += subResult.Size
+			r.Count += subResult.Count
+		}()
+	}
+
 	for i := 0; i < len(files); i++ {
 		file := files[i]
 		size, err := file.Stat(ctx)
@@ -53,17 +71,7 @@ func (a *sizer) Size(ctx context.Context, d Dir) (r Result, e error) {
 		r.Size += size
 		r.Count += 1
 	}
-
-	for i := 0; i < len(dirs); i++ {
-		dir := dirs[i]
-		subResult, err := a.Size(ctx, dir)
-		if err != nil {
-			e = err
-			return
-		}
-		r.Size += subResult.Size
-		r.Count += subResult.Count
-	}
+	wg.Wait()
 
 	return
 }
