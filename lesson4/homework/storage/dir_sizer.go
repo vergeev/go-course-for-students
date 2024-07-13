@@ -31,7 +31,39 @@ func NewSizer() DirSizer {
 	return &sizer{}
 }
 
-func (a *sizer) Size(ctx context.Context, d Dir) (Result, error) {
-	// TODO: implement this
-	return Result{}, nil
+func (a *sizer) Size(ctx context.Context, d Dir) (r Result, e error) {
+	r = Result{
+		Size:  0,
+		Count: 0,
+	}
+
+	dirs, files, err := d.Ls(ctx)
+	if err != nil {
+		e = err
+		return
+	}
+
+	for i := 0; i < len(files); i++ {
+		file := files[i]
+		size, err := file.Stat(ctx)
+		if err != nil {
+			e = err
+			return
+		}
+		r.Size += size
+		r.Count += 1
+	}
+
+	for i := 0; i < len(dirs); i++ {
+		dir := dirs[i]
+		subResult, err := a.Size(ctx, dir)
+		if err != nil {
+			e = err
+			return
+		}
+		r.Size += subResult.Size
+		r.Count += subResult.Count
+	}
+
+	return
 }
