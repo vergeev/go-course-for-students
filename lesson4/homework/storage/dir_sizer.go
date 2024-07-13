@@ -2,6 +2,8 @@ package storage
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 )
 
 // Result represents the Size function result
@@ -19,19 +21,53 @@ type DirSizer interface {
 }
 
 // sizer implement the DirSizer interface
-type sizer struct {
-	// maxWorkersCount number of workers for asynchronous run
-	maxWorkersCount int
-
-	// TODO: add other fields as you wish
-}
+type sizer struct{}
 
 // NewSizer returns new DirSizer instance
 func NewSizer() DirSizer {
 	return &sizer{}
 }
 
-func (a *sizer) Size(ctx context.Context, d Dir) (Result, error) {
-	// TODO: implement this
-	return Result{}, nil
+func (a *sizer) Size(ctx context.Context, d Dir) (r Result, e error) {
+	r = Result{
+		Size:  0,
+		Count: 0,
+	}
+
+	dirs, files, err := d.Ls(ctx)
+	if err != nil {
+		e = err
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(dirs))
+	for i := 0; i < len(dirs); i++ {
+		dir := dirs[i]
+		go func() {
+			defer wg.Done()
+
+			subResult, err := a.Size(ctx, dir)
+			if err != nil {
+				e = err
+				return
+			}
+			atomic.AddInt64(&r.Size, subResult.Size)
+			atomic.AddInt64(&r.Count, subResult.Count)
+		}()
+	}
+
+	for i := 0; i < len(files); i++ {
+		file := files[i]
+		size, err := file.Stat(ctx)
+		if err != nil {
+			e = err
+			return
+		}
+		atomic.AddInt64(&r.Size, size)
+		atomic.AddInt64(&r.Count, 1)
+	}
+	wg.Wait()
+
+	return
 }
