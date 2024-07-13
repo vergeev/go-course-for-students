@@ -21,12 +21,7 @@ type DirSizer interface {
 }
 
 // sizer implement the DirSizer interface
-type sizer struct {
-	// maxWorkersCount number of workers for asynchronous run
-	maxWorkersCount int
-
-	// TODO: add other fields as you wish
-}
+type sizer struct{}
 
 // NewSizer returns new DirSizer instance
 func NewSizer() DirSizer {
